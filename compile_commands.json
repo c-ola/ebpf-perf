@@ -1,0 +1,17 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-g",
+      "-Wall",
+      "-Ibuild",
+      "-o",
+      "uprobe",
+      "uprobe.c"
+    ],
+    "directory": "/home/nikola/research/ebpf/bpfuprobing",
+    "file": "/home/nikola/research/ebpf/bpfuprobing/uprobe.c",
+    "output": "/home/nikola/research/ebpf/bpfuprobing/uprobe"
+  }
+]
