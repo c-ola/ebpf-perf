@@ -11,10 +11,11 @@ clean:
 INCLUDES := -I$(BUILD_DIR)
 
 test: test_program.c
-	gcc $(CFLAGS) -ljson-c test_program.c -o test_program
+	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/output.map" test_program.c -o $(BUILD_DIR)/$@
+	python3 ebpf_perf.py $(BUILD_DIR)/output.map $(BUILD_DIR)/$@ $(BUILD_DIR)/symbols.json
 
 uprobe: $(BUILD_DIR)/uprobe.bpf.o uprobe.c $(BUILD_DIR)/uprobe.skel.h
-	gcc $(CFLAGS) uprobe.c $(INCLUDES) -lbpf -lelf -lz -o $@
+	gcc $(CFLAGS) uprobe.c symbols.c $(INCLUDES) -ljson-c -lbpf -lelf -lz -o $(BUILD_DIR)/$@
 
 $(BUILD_DIR)/uprobe.bpf.o: uprobe.bpf.c
 	$(CC) -g -O2 -target bpf -D__TARGET_ARCH_x86 -c uprobe.bpf.c -o $(BUILD_DIR)/uprobe.bpf.o

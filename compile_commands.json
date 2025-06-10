@@ -7,11 +7,40 @@
       "-Wall",
       "-Ibuild",
       "-o",
-      "uprobe",
+      "build/uprobe",
       "uprobe.c"
     ],
-    "directory": "/home/nikola/research/ebpf/bpfuprobing",
-    "file": "/home/nikola/research/ebpf/bpfuprobing/uprobe.c",
-    "output": "/home/nikola/research/ebpf/bpfuprobing/uprobe"
+    "directory": "/home/nikola/research/ebpf/ebpf-perf",
+    "file": "/home/nikola/research/ebpf/ebpf-perf/uprobe.c",
+    "output": "/home/nikola/research/ebpf/ebpf-perf/build/uprobe"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-g",
+      "-Wall",
+      "-Ibuild",
+      "-o",
+      "build/uprobe",
+      "symbols.c"
+    ],
+    "directory": "/home/nikola/research/ebpf/ebpf-perf",
+    "file": "/home/nikola/research/ebpf/ebpf-perf/symbols.c",
+    "output": "/home/nikola/research/ebpf/ebpf-perf/build/uprobe"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-g",
+      "-Wall",
+      "-o",
+      "build/test",
+      "test_program.c"
+    ],
+    "directory": "/home/nikola/research/ebpf/ebpf-perf",
+    "file": "/home/nikola/research/ebpf/ebpf-perf/test_program.c",
+    "output": "/home/nikola/research/ebpf/ebpf-perf/build/test"
   }
 ]
