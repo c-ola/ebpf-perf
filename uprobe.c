@@ -1,11 +1,18 @@
 // https://github.com/anakryiko/bpf-ringbuf-examples/blob/main/src/ringbuf-output.c
 #include <errno.h>
+#include <json-c/json_object.h>
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
 #include "uprobe.skel.h"
+#include "json-c/json_tokener.h"
+
+typedef struct {
+    unsigned long addr;
+    char name[256];
+} symbol;
 
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args) {
 	return vfprintf(stderr, format, args);
@@ -16,6 +23,28 @@ struct data {
     unsigned long call_time;
     unsigned long ip;
 };
+
+void load_symbols() {
+    const char* filename = "symbols.json";
+    char * buffer = 0;
+    long length;
+    FILE * f = fopen (filename, "rb");
+
+    if (f)
+    {
+      fseek (f, 0, SEEK_END);
+      length = ftell (f);
+      fseek (f, 0, SEEK_SET);
+      buffer = malloc (length);
+      if (buffer)
+      {
+        fread (buffer, 1, length, f);
+      }
+      fclose (f);
+    }
+    struct json_object* obj = json_tokener_parse(buffer);
+    json_object_get_array(const struct json_object *obj)
+}
 
 
 static bool exiting = false;

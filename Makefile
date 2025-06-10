@@ -11,7 +11,7 @@ clean:
 INCLUDES := -I$(BUILD_DIR)
 
 test: test_program.c
-	gcc $(CFLAGS) test_program.c -o test_program
+	gcc $(CFLAGS) -ljson-c test_program.c -o test_program
 
 uprobe: $(BUILD_DIR)/uprobe.bpf.o uprobe.c $(BUILD_DIR)/uprobe.skel.h
 	gcc $(CFLAGS) uprobe.c $(INCLUDES) -lbpf -lelf -lz -o $@
