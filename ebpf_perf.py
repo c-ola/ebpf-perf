@@ -2,6 +2,7 @@ import re
 import sys
 import json
 from elftools.elf.elffile import ELFFile
+from capstone import *
 
 if len(sys.argv) < 2:
     print("Please pass in a map file to parse")
@@ -45,6 +46,34 @@ if fini and text:
             addr = int(addr, 16)
             if addr < fini and addr >= text:
                 functions.append({"addr": addr, "symbol": symbol})
+
+
+with open(elf_path, 'rb') as f:
+    elf = f.read()
+
+
+md = Cs(CS_ARCH_X86, CS_MODE_64)
+
+for idx, function in enumerate(functions):
+    print(f"Dissassembling {function['symbol']}")
+    addr = function['addr']
+    code = elf[addr:]
+    next_sym_addr = functions[idx + 1]['addr'] if idx < len(functions) - 1 else fini
+    found_returns = []
+    if function['symbol'] == "main":
+        found_returns.append(fini)
+    addr_offset = 0
+    while True:
+        instrs = md.disasm(code[addr_offset:addr_offset + 18], addr + addr_offset, 1)
+        for i in instrs:
+            print("0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str))
+            addr_offset += len(i.bytes)
+            if i.bytes == b'\xc3':
+                found_returns.append(i.address)
+        if addr + addr_offset >= next_sym_addr:
+            break
+    functions[idx]['returns'] = found_returns
+    print(found_returns)
 
 with open(out_path, 'w') as f:
     json.dump({"offset": init, "symbols": functions}, f, indent=2)

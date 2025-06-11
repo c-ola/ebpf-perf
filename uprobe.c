@@ -30,13 +30,22 @@ int handle_data(void* vctx, void* dat, size_t dat_sz){
     struct handle_ctx ctx = *(struct handle_ctx*)vctx;
     struct perf_data *d = dat;
     long unsigned long addr = d->ip - d->base_code_addr + ctx.symbols->offset;
-    const char* name = get_symbol_name(ctx.symbols, addr);
+    int is_ret = 0;
+    const char* name = get_symbol_name(ctx.symbols, addr, &is_ret);
+    if (is_ret) {
+        printf("ret: ");
+    } else {
+        printf("enter: ");
+    }
     printf("pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
     return 0;
 }
 
 int main(int argc, char **argv) {
     symbol_array symbols = load_symbols("build/symbols.json");
+    for (int i = 0; i < symbols.length; i++) {
+        print_symbol(symbols.values[i]);
+    }
     struct uprobe_bpf *skel;
     int err;
     LIBBPF_OPTS(bpf_uprobe_opts, uprobe_opts);
@@ -57,7 +66,7 @@ int main(int argc, char **argv) {
     /* Attach tracepoint handler */
     const char* binary_name = "./build/test";
     for (int i = 0; i < symbols.length; i++) {
-        symbol* sym = &symbols.values[i];
+        symbol* sym = symbols.values[i];
         uprobe_opts.func_name = sym->name;
         uprobe_opts.retprobe = false;
         skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, binary_name, 0, &uprobe_opts);
@@ -66,15 +75,21 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Failed to attach uprobe: %d\n", err);
             goto cleanup;
         }
+        
+        for (int j = 0; j < sym->num_returns; j++) {
+            uprobe_opts.func_name = sym->name;
+            uprobe_opts.retprobe = true;
+            unsigned long addr = sym->returns[j] - sym->addr;
+            printf("ret=0x%lx\n", sym->returns[j]);
+            //printf("attaching ret to offset 0x%lx, for ret 0x%lx\n", addr, sym->returns[i]);
+            skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, binary_name, addr, &uprobe_opts);
+            if (!skel->links.uprobe_ret) {
+                err = -errno;
+                fprintf(stderr, "Failed to attach uprobe: %d\n", err);
+                goto cleanup;
+            }
+        }
     }
-    /*uprobe_opts.func_name = "foo";
-      uprobe_opts.retprobe = true;
-      skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, binary_name, 0x56, &uprobe_opts);
-      if (!skel->links.uprobe_ret) {
-      err = -errno;
-      fprintf(stderr, "Failed to attach uprobe: %d\n", err);
-      goto cleanup;
-      }*/
 
     struct handle_ctx ctx;
     ctx.symbols = &symbols;
@@ -103,6 +118,7 @@ int main(int argc, char **argv) {
 cleanup:
     ring_buffer__free(rb);
     free(symbols.values);
+    // need to free each symbol too lol
     uprobe_bpf__destroy(skel);
     return -err;
 }

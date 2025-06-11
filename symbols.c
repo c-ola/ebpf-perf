@@ -32,7 +32,7 @@ symbol_array load_symbols(const char* filename) {
     struct json_object* obj_arr = tmp_obj;
 
     symbol_array symbols = {
-        .values = malloc(sizeof(symbol) * len),
+        .values = malloc(sizeof(symbol*) * len),
         .length = len,
         .offset = offset,
     };
@@ -40,28 +40,89 @@ symbol_array load_symbols(const char* filename) {
     printf("%lu json_objs\n", len);
     for (size_t i = 0; i < len; i++) {
         struct json_object* obj = json_object_array_get_idx(obj_arr, i);
-        struct json_object* sym_obj;
+        struct json_object* sym_obj, * rets_obj;
 
         json_object_object_get_ex(obj, "symbol", &sym_obj);
-        const char* sym = json_object_get_string(sym_obj);
+        const char* sym_name = json_object_get_string(sym_obj);
         size_t sym_len = json_object_get_string_len(sym_obj);
 
         json_object_object_get_ex(obj, "addr", &sym_obj);
         unsigned long addr = json_object_get_uint64(sym_obj);
-
-        symbol* sym_struct = &symbols.values[i];
-        memcpy((void*)sym_struct->name, sym, sym_len);
-        sym_struct->addr = addr;
-        printf("%s 0x%lx\n", sym_struct->name, sym_struct->addr);
+        
+        json_object_object_get_ex(obj, "returns", &rets_obj);
+        struct _symbol* sym_struct = symbol_new(addr, sym_name, sym_len);
+        symbol_add_return_from_json(sym_struct, rets_obj);
+        symbols.values[i] = sym_struct;
     }
     free(buffer);
     return symbols;
 }
 
-const char* get_symbol_name(symbol_array* symbols, unsigned long addr) {
+symbol* symbol_new(unsigned long addr, const char *name, int name_len) {
+    symbol* sym = (symbol*) malloc(sizeof(symbol));
+    sym->addr = addr;
+    memcpy((void*)sym->name, name, name_len);
+    sym->num_returns = 0;
+    return sym;
+}
+
+void symbol_add_return(symbol* sym, unsigned long *returns, int count) {
+    if (sym->returns == NULL && sym->num_returns == 0) {
+        sym->returns = malloc(sizeof(unsigned long) * count);
+        memcpy((void*)sym->returns, returns, sizeof(unsigned long) * count);
+        sym->num_returns = count;
+    } else {
+        size_t new_size = sizeof(unsigned long) * (count + sym->num_returns);
+        size_t old_size = sizeof(unsigned long) * sym->num_returns;
+        sym->returns = realloc(sym->returns, new_size);
+        memcpy(sym->returns + old_size, returns, sizeof(unsigned long) * count);
+    }
+}
+
+void symbol_add_return_from_json(symbol *sym, struct json_object * obj) {
+    size_t num_rets = json_object_array_length(obj);
+    sym->returns = malloc(sizeof(unsigned long) * num_rets);
+    for (int i = 0; i < num_rets; i++) {
+        struct json_object* ret_obj = json_object_array_get_idx(obj, i);
+        unsigned long addr = json_object_get_uint64(ret_obj);
+        sym->returns[i] = addr;
+    }
+    sym->num_returns = num_rets;
+}
+
+void print_symbol(symbol* sym) {
+    printf("%s, 0x%lx, {", sym->name, sym->addr);
+    for (int i = 0; i < sym->num_returns; i++) {
+        printf("0x%lx", sym->returns[i]);
+        if (i != sym->num_returns - 1) {
+            printf(", ");
+        }
+    }
+    printf("}\n");
+}
+
+void free_symbol(symbol* sym) {
+    if (sym->num_returns > 0) {
+        free(sym->returns);
+    }
+    free(sym);
+}
+
+
+
+const char* get_symbol_name(symbol_array* symbols, unsigned long addr, int* is_ret) {
     for (int i = 0; i < symbols->length; i++) {
-        if (symbols->values[i].addr == addr) {
-            return symbols->values[i].name;
+        if (symbols->values[i]->addr == addr) {
+            return symbols->values[i]->name;
+        }
+    }
+    for (int i = 0; i < symbols->length; i++) {
+        symbol* sym = symbols->values[i];
+        for (int j = 0; j < sym->num_returns; j++) {
+            if (sym->returns[j] == addr) {
+                *is_ret = 1;
+                return sym->name;
+            }
         }
     }
     return NULL;
