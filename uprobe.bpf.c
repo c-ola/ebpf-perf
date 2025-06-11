@@ -37,7 +37,7 @@ int BPF_UPROBE(uprobe_entry) {
         .base_code_addr = base_code_addr,
     };
     bpf_ringbuf_output(&rb, &d, sizeof(d), 0);
-    bpf_printk("entry, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);
+    //bpf_printk("entry, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);
     return 0;
 }
 
@@ -58,6 +58,6 @@ int BPF_URETPROBE(uprobe_ret, long ret) {
         .base_code_addr = base_code_addr,
     };
     bpf_ringbuf_output(&rb, &d, sizeof(d), 0);
-    bpf_printk("ret, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);
+    //bpf_printk("ret, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);
     return 0;
 }

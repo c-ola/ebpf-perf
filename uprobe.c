@@ -14,6 +14,7 @@
 
 struct handle_ctx {
     symbol_array* symbols;
+    FILE* log_file;
 };
 
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args) {
@@ -33,11 +34,11 @@ int handle_data(void* vctx, void* dat, size_t dat_sz){
     int is_ret = 0;
     const char* name = get_symbol_name(ctx.symbols, addr, &is_ret);
     if (is_ret) {
-        printf("ret: ");
+        fprintf(ctx.log_file, "ret: ");
     } else {
-        printf("enter: ");
+        fprintf(ctx.log_file, "enter: ");
     }
-    printf("pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    fprintf(ctx.log_file, "pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
     return 0;
 }
 
@@ -100,6 +101,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to create ring buffer\n");
         goto cleanup;
     }
+    ctx.log_file = fopen("perf_log.log", "w");
+
     printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
             "to see output of the BPF programs.\n");
     while (!exiting) {
@@ -113,7 +116,7 @@ int main(int argc, char **argv) {
             break;
         }
     }
-
+    fclose(ctx.log_file);
 
 cleanup:
     ring_buffer__free(rb);

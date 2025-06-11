@@ -10,11 +10,10 @@ __attribute__((noinline)) int foo(int x, float b) {
 int main(int argc, char* argv[]) {
     printf("this is a test program");
     int x = 0;
-    while(1) {
+    sleep(1);
+    for (int i = 0; i < 10; i++) {
         foo(1, 2.7);
-        sleep(1);
         x = foo(2, 3.14);
-        usleep(5000);
     }
     return x;
 }
