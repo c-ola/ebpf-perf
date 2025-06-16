@@ -64,13 +64,21 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // pin the bpf program so its there when this program closes, idk how this works yet
+    //bpf_program__pin(skel->progs.uprobe_entry, "/sys/fs/bpf/uprobe_entry");
+
     /* Attach tracepoint handler */
     const char* binary_name = "./build/test";
     for (int i = 0; i < symbols.length; i++) {
         symbol* sym = symbols.values[i];
-        uprobe_opts.func_name = sym->name;
+        //uprobe_opts.func_name = sym->name;
         uprobe_opts.retprobe = false;
-        skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, binary_name, 0, &uprobe_opts);
+        uprobe_opts.attach_mode = PROBE_ATTACH_MODE_LINK;
+        skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, binary_name, sym->addr, &uprobe_opts);
+        printf("%s=0x%lx\n", sym->name, sym->addr);
+        //char path[256] = "/sys/fs/bpf/";
+        //strcat(path, uprobe_opts.func_name);
+        //bpf_link__pin(skel->links.uprobe_entry, path);
         if (!skel->links.uprobe_entry) {
             err = -errno;
             fprintf(stderr, "Failed to attach uprobe: %d\n", err);
@@ -78,9 +86,9 @@ int main(int argc, char **argv) {
         }
         
         for (int j = 0; j < sym->num_returns; j++) {
-            uprobe_opts.func_name = sym->name;
+            //uprobe_opts.func_name = sym->name;
             uprobe_opts.retprobe = true;
-            unsigned long addr = sym->returns[j] - sym->addr;
+            unsigned long addr = sym->returns[j];// - sym->addr;
             printf("ret=0x%lx\n", sym->returns[j]);
             //printf("attaching ret to offset 0x%lx, for ret 0x%lx\n", addr, sym->returns[i]);
             skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, binary_name, addr, &uprobe_opts);
@@ -117,9 +125,9 @@ int main(int argc, char **argv) {
         }
     }
     fclose(ctx.log_file);
+    ring_buffer__free(rb);
 
 cleanup:
-    ring_buffer__free(rb);
     free(symbols.values);
     // need to free each symbol too lol
     uprobe_bpf__destroy(skel);

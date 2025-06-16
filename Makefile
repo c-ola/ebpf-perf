@@ -1,24 +1,29 @@
 CC := clang
 BUILD_DIR := build
+SRC_DIR := src
+TESTS_DIR := tests
+SKEL_DIR := $(BUILD_DIR)/skel
 CFLAGS := -g -Wall
 
+_dummy := $(shell mkdir -p $(BUILD_DIR) $(SKEL_DIR))
+
 all: uprobe test
-	mkdir -p $(BUILD_DIR)
 
 clean:
 	rm -r $(BUILD_DIR)
 
-INCLUDES := -I$(BUILD_DIR)
+INCLUDES := -I$(SKEL_DIR) -I$(SRC_DIR)
 
-test: test_program.c
-	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/output.map" test_program.c -o $(BUILD_DIR)/$@
-	python3 ebpf_perf.py $(BUILD_DIR)/output.map $(BUILD_DIR)/$@ $(BUILD_DIR)/symbols.json
+test: $(TESTS_DIR)/test_program.c
+	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/output.map" $< -o $(BUILD_DIR)/$@
+	strip $(BUILD_DIR)/$@
+	python3 $(SRC_DIR)/ebpf_perf.py $(BUILD_DIR)/output.map $(BUILD_DIR)/$@ $(BUILD_DIR)/symbols.json
 
-uprobe: $(BUILD_DIR)/uprobe.bpf.o uprobe.c $(BUILD_DIR)/uprobe.skel.h
-	gcc $(CFLAGS) uprobe.c symbols.c $(INCLUDES) -ljson-c -lbpf -lelf -lz -o $(BUILD_DIR)/$@
+uprobe: $(SRC_DIR)/uprobe.c $(SKEL_DIR)/uprobe.skel.h
+	gcc $(CFLAGS) $(SRC_DIR)/uprobe.c $(SRC_DIR)/symbols.c $(INCLUDES) -ljson-c -lbpf -lelf -lz -o $(BUILD_DIR)/$@
 
-$(BUILD_DIR)/uprobe.bpf.o: uprobe.bpf.c
-	$(CC) -g -O2 -target bpf -D__TARGET_ARCH_x86 -c uprobe.bpf.c -o $(BUILD_DIR)/uprobe.bpf.o
+$(BUILD_DIR)/uprobe.bpf.o: $(SRC_DIR)/uprobe.bpf.c
+	$(CC) -g -O2 -target bpf -D__TARGET_ARCH_x86 -c $< -o $(BUILD_DIR)/uprobe.bpf.o
 
-$(BUILD_DIR)/uprobe.skel.h: $(BUILD_DIR)/uprobe.bpf.o
+$(SKEL_DIR)/uprobe.skel.h: $(BUILD_DIR)/uprobe.bpf.o
 	bpftool gen skeleton $< > $@

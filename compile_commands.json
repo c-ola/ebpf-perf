@@ -5,13 +5,14 @@
       "-c",
       "-g",
       "-Wall",
-      "-Ibuild",
+      "-Ibuild/skel",
+      "-Isrc",
       "-o",
       "build/uprobe",
-      "uprobe.c"
+      "src/uprobe.c"
     ],
     "directory": "/home/nikola/research/ebpf/ebpf-perf",
-    "file": "/home/nikola/research/ebpf/ebpf-perf/uprobe.c",
+    "file": "/home/nikola/research/ebpf/ebpf-perf/src/uprobe.c",
     "output": "/home/nikola/research/ebpf/ebpf-perf/build/uprobe"
   },
   {
@@ -20,13 +21,14 @@
       "-c",
       "-g",
       "-Wall",
-      "-Ibuild",
+      "-Ibuild/skel",
+      "-Isrc",
       "-o",
       "build/uprobe",
-      "symbols.c"
+      "src/symbols.c"
     ],
     "directory": "/home/nikola/research/ebpf/ebpf-perf",
-    "file": "/home/nikola/research/ebpf/ebpf-perf/symbols.c",
+    "file": "/home/nikola/research/ebpf/ebpf-perf/src/symbols.c",
     "output": "/home/nikola/research/ebpf/ebpf-perf/build/uprobe"
   },
   {
@@ -37,10 +39,10 @@
       "-Wall",
       "-o",
       "build/test",
-      "test_program.c"
+      "tests/test_program.c"
     ],
     "directory": "/home/nikola/research/ebpf/ebpf-perf",
-    "file": "/home/nikola/research/ebpf/ebpf-perf/test_program.c",
+    "file": "/home/nikola/research/ebpf/ebpf-perf/tests/test_program.c",
     "output": "/home/nikola/research/ebpf/ebpf-perf/build/test"
   }
 ]

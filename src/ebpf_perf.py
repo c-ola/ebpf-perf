@@ -47,6 +47,22 @@ if fini and text:
             if addr < fini and addr >= text:
                 functions.append({"addr": addr, "symbol": symbol})
 
+print(functions)
+
+def get_base_address(elf_path):
+    with open(elf_path, 'rb') as f:
+        elf = ELFFile(f)
+        base_addr = None
+
+        for segment in elf.iter_segments():
+            if segment['p_type'] == 'PT_LOAD':
+                vaddr = segment['p_vaddr']
+                if base_addr is None or vaddr < base_addr:
+                    base_addr = vaddr
+
+        return base_addr
+
+base_addr = get_base_address(elf_path)
 
 with open(elf_path, 'rb') as f:
     elf = f.read()
@@ -57,7 +73,7 @@ md = Cs(CS_ARCH_X86, CS_MODE_64)
 for idx, function in enumerate(functions):
     print(f"Dissassembling {function['symbol']}")
     addr = function['addr']
-    code = elf[addr:]
+    code = elf[addr - base_addr:]
     next_sym_addr = functions[idx + 1]['addr'] if idx < len(functions) - 1 else fini
     found_returns = []
     #if function['symbol'] == "main":
