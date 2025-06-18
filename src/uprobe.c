@@ -2,6 +2,7 @@
 #include "uprobe.skel.h"
 #include "common.h"
 #include "symbols.h"
+#include <ctype.h>
 #include <errno.h>
 #include <json-c/json_object.h>
 #include <signal.h>
@@ -42,8 +43,49 @@ int handle_data(void* vctx, void* dat, size_t dat_sz){
     return 0;
 }
 
+
 int main(int argc, char **argv) {
-    symbol_array symbols = load_symbols("build/symbols.json");
+    const char* symbols_path = "symbols.json";
+    const char* elf_path = NULL;
+    int c; opterr = 0;
+    if (argc == 0) {
+        fprintf (stderr, "please provide arguments:\nusage: uprobe [ARGS]\n\t-e <elf_path>\n\t-s <symbols_path>\n");
+    }
+    while ((c = getopt(argc, argv, ":e:s:")) != -1) {
+        switch (c) {
+            case 'e':
+                elf_path = optarg;
+                break;
+            case 's':
+                printf("%s here\n", optarg);
+                symbols_path = optarg;
+                break;
+            case ':':
+                if (optopt == 'e')
+                    fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+                return 1;
+            case '?':
+                if (optopt == 'e')
+                    fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+                else if (optopt == 'h')
+                    fprintf (stderr, "usage: uprobe [ARGS]\n\t-e <elf_path>\n\t-s <symbols_path>\n");
+                else if (isprint(optopt))
+                    fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+                else
+                    fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+                return 1;
+            default:
+                abort();
+        }
+    }
+
+    if (elf_path == NULL) {
+        fprintf(stderr, "Option -e <elf_path> is required\n");
+        return 1;
+    }
+
+    printf("Start monitoring for elf %s. Using symbols s:%s\n", elf_path, symbols_path);
+    symbol_array symbols = load_symbols(symbols_path);
     for (int i = 0; i < symbols.length; i++) {
         print_symbol(symbols.values[i]);
     }
@@ -68,7 +110,7 @@ int main(int argc, char **argv) {
     //bpf_program__pin(skel->progs.uprobe_entry, "/sys/fs/bpf/uprobe_entry");
 
     /* Attach tracepoint handler */
-    const char* binary_name = "./build/test";
+    const char* binary_name = elf_path;
     for (int i = 0; i < symbols.length; i++) {
         symbol* sym = symbols.values[i];
         //uprobe_opts.func_name = sym->name;
@@ -84,7 +126,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Failed to attach uprobe: %d\n", err);
             goto cleanup;
         }
-        
+
         for (int j = 0; j < sym->num_returns; j++) {
             //uprobe_opts.func_name = sym->name;
             uprobe_opts.retprobe = true;

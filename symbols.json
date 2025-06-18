@@ -1,0 +1,193 @@
+{
+  "offset": 8192,
+  "symbols": [
+    {
+      "addr": 9184,
+      "symbol": "_start",
+      "returns": [
+        9272,
+        9336,
+        9397,
+        9408
+      ]
+    },
+    {
+      "addr": 9433,
+      "symbol": "main",
+      "returns": [
+        9737
+      ]
+    },
+    {
+      "addr": 9952,
+      "symbol": "print_token",
+      "returns": [
+        9994
+      ]
+    },
+    {
+      "addr": 9995,
+      "symbol": "load_tokens",
+      "returns": [
+        10668
+      ]
+    },
+    {
+      "addr": 10674,
+      "symbol": "get_variable",
+      "returns": [
+        10920
+      ]
+    },
+    {
+      "addr": 10944,
+      "symbol": "none",
+      "returns": [
+        10949
+      ]
+    },
+    {
+      "addr": 10950,
+      "symbol": "list",
+      "returns": [
+        10955
+      ]
+    },
+    {
+      "addr": 10956,
+      "symbol": "stop",
+      "returns": [
+        10994
+      ]
+    },
+    {
+      "addr": 10995,
+      "symbol": "kill",
+      "returns": [
+        11013
+      ]
+    },
+    {
+      "addr": 11014,
+      "symbol": "start",
+      "returns": [
+        11135
+      ]
+    },
+    {
+      "addr": 11150,
+      "symbol": "switch_state",
+      "returns": [
+        11213
+      ]
+    },
+    {
+      "addr": 11236,
+      "symbol": "spawn_sender_thread",
+      "returns": []
+    },
+    {
+      "addr": 11967,
+      "symbol": "spawn_listener_thread",
+      "returns": []
+    },
+    {
+      "addr": 12165,
+      "symbol": "destroy_server",
+      "returns": [
+        12224
+      ]
+    },
+    {
+      "addr": 12225,
+      "symbol": "start_server",
+      "returns": [
+        12462
+      ]
+    },
+    {
+      "addr": 12525,
+      "symbol": "create_device",
+      "returns": [
+        13158
+      ]
+    },
+    {
+      "addr": 13164,
+      "symbol": "run_server",
+      "returns": [
+        14062
+      ]
+    },
+    {
+      "addr": 14068,
+      "symbol": "destroy_device",
+      "returns": [
+        14110
+      ]
+    },
+    {
+      "addr": 14111,
+      "symbol": "load_config",
+      "returns": [
+        14500
+      ]
+    },
+    {
+      "addr": 14506,
+      "symbol": "create_server",
+      "returns": [
+        14733
+      ]
+    },
+    {
+      "addr": 14734,
+      "symbol": "reload",
+      "returns": [
+        14803
+      ]
+    },
+    {
+      "addr": 14832,
+      "symbol": "get_ip_str",
+      "returns": [
+        14896
+      ]
+    },
+    {
+      "addr": 14921,
+      "symbol": "connect_to_server",
+      "returns": [
+        15049
+      ]
+    },
+    {
+      "addr": 15093,
+      "symbol": "send_input_event",
+      "returns": [
+        15353
+      ]
+    },
+    {
+      "addr": 15359,
+      "symbol": "lock",
+      "returns": [
+        16137
+      ]
+    },
+    {
+      "addr": 16143,
+      "symbol": "try_unlock",
+      "returns": [
+        16242
+      ]
+    },
+    {
+      "addr": 16366,
+      "symbol": "spawn_lock_thread",
+      "returns": [
+          16512
+      ]
+    }
+  ]
+}

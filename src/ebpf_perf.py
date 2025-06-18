@@ -68,7 +68,7 @@ with open(elf_path, 'rb') as f:
     elf = f.read()
 
 
-md = Cs(CS_ARCH_X86, CS_MODE_64)
+md = Cs(CS_ARCH_ARM64, CS_MODE_64)
 
 for idx, function in enumerate(functions):
     print(f"Dissassembling {function['symbol']}")

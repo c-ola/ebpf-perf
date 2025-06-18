@@ -15,9 +15,11 @@ clean:
 INCLUDES := -I$(SKEL_DIR) -I$(SRC_DIR)
 
 test: $(TESTS_DIR)/test_program.c
-	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/output.map" $< -o $(BUILD_DIR)/$@
-	strip $(BUILD_DIR)/$@
-	python3 $(SRC_DIR)/ebpf_perf.py $(BUILD_DIR)/output.map $(BUILD_DIR)/$@ $(BUILD_DIR)/symbols.json
+	@ mkdir -p $(BUILD_DIR)/$(notdir $(basename $<))
+	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/$(notdir $(basename $<))/output.map" -Wl,--strip-debug $< -o $(BUILD_DIR)/$(notdir $(basename $<))/$@
+	nm -U -v -S $(BUILD_DIR)/$(notdir $(basename $<))/$@ > $(BUILD_DIR)/$(notdir $(basename $<))/$@.syms
+	strip $(BUILD_DIR)/$(notdir $(basename $<))/$@
+	python3 $(SRC_DIR)/ebpf_perf.py $(BUILD_DIR)/$(notdir $(basename $<))/output.map $(BUILD_DIR)/$(notdir $(basename $<))/$@ $(BUILD_DIR)/$(notdir $(basename $<))/symbols.json
 
 uprobe: $(SRC_DIR)/uprobe.c $(SKEL_DIR)/uprobe.skel.h
 	gcc $(CFLAGS) $(SRC_DIR)/uprobe.c $(SRC_DIR)/symbols.c $(INCLUDES) -ljson-c -lbpf -lelf -lz -o $(BUILD_DIR)/$@
