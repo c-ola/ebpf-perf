@@ -31,15 +31,22 @@ static void sig_handler(int sig)
 int handle_data(void* vctx, void* dat, size_t dat_sz){
     struct handle_ctx ctx = *(struct handle_ctx*)vctx;
     struct perf_data *d = dat;
+#ifdef __x86_64__
     long unsigned long addr = d->ip - d->base_code_addr + ctx.symbols->offset;
+#else
+    long unsigned long addr = d->ip - d->base_code_addr;
+#endif
     int is_ret = 0;
     const char* name = get_symbol_name(ctx.symbols, addr, &is_ret);
     if (is_ret) {
         fprintf(ctx.log_file, "ret: ");
+        printf("ret: ");
     } else {
         fprintf(ctx.log_file, "enter: ");
+        printf("enter: ");
     }
     fprintf(ctx.log_file, "pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    printf("pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
     return 0;
 }
 
@@ -106,7 +113,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // pin the bpf program so its there when this program closes, idk how this works yet
+    // pin the bpf program so it still exist when this program exits, idk how this works yet
     //bpf_program__pin(skel->progs.uprobe_entry, "/sys/fs/bpf/uprobe_entry");
 
     /* Attach tracepoint handler */
@@ -115,7 +122,7 @@ int main(int argc, char **argv) {
         symbol* sym = symbols.values[i];
         //uprobe_opts.func_name = sym->name;
         uprobe_opts.retprobe = false;
-        uprobe_opts.attach_mode = PROBE_ATTACH_MODE_LINK;
+        //uprobe_opts.attach_mode = PROBE_ATTACH_MODE_LINK; // doesn't work on armbian, maybe libbpf version is outdated?
         skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, binary_name, sym->addr, &uprobe_opts);
         printf("%s=0x%lx\n", sym->name, sym->addr);
         //char path[256] = "/sys/fs/bpf/";
@@ -153,8 +160,7 @@ int main(int argc, char **argv) {
     }
     ctx.log_file = fopen("perf_log.log", "w");
 
-    printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` "
-            "to see output of the BPF programs.\n");
+    printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` " "to see output of the BPF programs.\n");
     while (!exiting) {
         err = ring_buffer__poll(rb, 100);
         if (err == -EINTR) {
@@ -171,7 +177,7 @@ int main(int argc, char **argv) {
 
 cleanup:
     free(symbols.values);
-    // need to free each symbol too lol
+    // need to free each symbol too lol, its leaking memory rn
     uprobe_bpf__destroy(skel);
     return -err;
 }

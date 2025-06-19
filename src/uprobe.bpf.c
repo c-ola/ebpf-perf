@@ -21,7 +21,7 @@ struct {
 } rb SEC(".maps");
 
 SEC("uprobe/entry_uprobe")
-int BPF_UPROBE(uprobe_entry) {
+int BPF_KPROBE(uprobe_entry) {
     u64 start = bpf_ktime_get_ns();
     u64 ip = bpf_get_func_ip(ctx);
     pid_t pid = bpf_get_current_pid_tgid() >> 32;
@@ -42,7 +42,7 @@ int BPF_UPROBE(uprobe_entry) {
 }
 
 SEC("uretprobe/ret_uprobe")
-int BPF_URETPROBE(uprobe_ret, long ret) {
+int BPF_KRETPROBE(uprobe_ret){//, long ret) {
     u64 start = bpf_ktime_get_ns();
     u64 ip = bpf_get_func_ip(ctx);
     pid_t pid = bpf_get_current_pid_tgid() >> 32;

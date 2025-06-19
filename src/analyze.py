@@ -29,7 +29,7 @@ for line in lines:
 print(json.dumps(perf, indent=2))
 total_t = 0
 for p in perf:
-    print(f"call to \'{p["name"]}\' took {p["len"] / 1_000_000}ms")
+    print(f"call to {p['name']} took {p['len'] / 1_000_000}ms")
     total_t += p["len"]
 print(f"{total_t / 1_000_000}ms")
 

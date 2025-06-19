@@ -112,12 +112,12 @@ void free_symbol(symbol* sym) {
 
 const char* get_symbol_name(symbol_array* symbols, unsigned long addr, int* is_ret) {
     for (int i = 0; i < symbols->length; i++) {
+        symbol* sym = symbols->values[i];
+        //printf("{}");
         if (symbols->values[i]->addr == addr) {
+            *is_ret = 0;
             return symbols->values[i]->name;
         }
-    }
-    for (int i = 0; i < symbols->length; i++) {
-        symbol* sym = symbols->values[i];
         for (int j = 0; j < sym->num_returns; j++) {
             if (sym->returns[j] == addr) {
                 *is_ret = 1;
@@ -125,5 +125,6 @@ const char* get_symbol_name(symbol_array* symbols, unsigned long addr, int* is_r
             }
         }
     }
+    fprintf(stderr, "Could not find symbol with addr addr 0x%lx\n", addr);
     return NULL;
 }

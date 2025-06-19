@@ -1,4 +1,5 @@
 import re
+import os
 import sys
 import json
 from elftools.elf.elffile import ELFFile
@@ -67,8 +68,16 @@ base_addr = get_base_address(elf_path)
 with open(elf_path, 'rb') as f:
     elf = f.read()
 
+arch, mode = None, None
+match os.uname().machine:
+    case "x86_64":
+        arch, mode = CS_ARCH_X86, CS_MODE_64
+    case "aarch64":
+        arch, mode = CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
+    case _:
+        print("Unmatched system architecture")
 
-md = Cs(CS_ARCH_ARM64, CS_MODE_64)
+md = Cs(arch, mode)
 
 for idx, function in enumerate(functions):
     print(f"Dissassembling {function['symbol']}")
@@ -82,9 +91,9 @@ for idx, function in enumerate(functions):
     while True:
         instrs = md.disasm(code[addr_offset:addr_offset + 18], addr + addr_offset, 1)
         for i in instrs:
-            print("0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str))
+            #print("0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str))
             addr_offset += len(i.bytes)
-            if i.bytes == b'\xc3':
+            if i.mnemonic == "ret":
                 found_returns.append(i.address)
         if addr + addr_offset >= next_sym_addr:
             break
