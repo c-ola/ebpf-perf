@@ -38,14 +38,9 @@ int handle_data(void* vctx, void* dat, size_t dat_sz){
 #endif
     int is_ret = 0;
     const char* name = get_symbol_name(ctx.symbols, addr, &is_ret);
-    if (is_ret) {
-        fprintf(ctx.log_file, "ret: ");
-        printf("ret: ");
-    } else {
-        fprintf(ctx.log_file, "enter: ");
-        printf("enter: ");
-    }
+    fprintf(ctx.log_file, is_ret ? "ret: " : "enter: ");
     fprintf(ctx.log_file, "pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    printf(is_ret ? "ret: " : "enter: ");
     printf("pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
     return 0;
 }
@@ -143,7 +138,7 @@ int main(int argc, char **argv) {
             skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, binary_name, addr, &uprobe_opts);
             if (!skel->links.uprobe_ret) {
                 err = -errno;
-                fprintf(stderr, "Failed to attach uprobe: %d\n", err);
+                fprintf(stderr, "Failed to attach ret uprobe: %d\n", err);
                 goto cleanup;
             }
         }

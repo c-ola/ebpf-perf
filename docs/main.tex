@@ -1,0 +1,209 @@
+% main.tex
+\documentclass[a4paper, 12pt, english]{article}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage[toc,page]{appendix}
+\usepackage{color}
+\usepackage[margin=1in]{geometry}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1em}
+
+\lstset{frame=tb,
+    language=python,
+    aboveskip=3mm,
+    belowskip=3mm,
+    showstringspaces=false,
+    columns=flexible,
+    basicstyle={\small\ttfamily},
+    numbers=none,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{dkgreen},
+    stringstyle=\color{mauve},
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=3
+}
+\title{Monitoring with eBPF}
+\author{Nikola Zupancic}
+\date{\today} 
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\end{center}
+%\tableofcontents
+
+\vfill
+
+\newpage
+\section{Progress}
+The program so far is \textit{somewhat} capable of finding functions and their returns in \textit{simple C programs that are stripped of debug info and symbols} (one program being a short 20 line program with a main and function foo, the other being some software that I wrote to share mouse and keyboard input across devices: \href{https://github.com/c-ola/ioswitch}{github.com/c-ola/ioswitch}).
+
+It consists of a loader and a bpf program, as well as some short python scripts for finding symbols and analysis.
+
+\subsection{uprobe bpf}
+
+This is the bpf program that gets attached to the entry of a function, a nearly equivalent one also exists for the return, however it differs in using BPF\_KRETPROBE as a macro, and has an extra return value argument.
+
+The program finds the pid, calltime, instruction pointer, and base address of the .text section map (this behaviour differed between arm and x86\_64, arm did not need the base address). It then writes the data to the ringbuf rb, which is read in the loader program.
+
+\begin{lstlisting}[language=C, basicstyle=\ttfamily, frame=single]
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 256 * 1024);
+} rb SEC(".maps");
+
+SEC("uprobe/entry_uprobe")
+int BPF_KPROBE(uprobe_entry) {
+    u64 start = bpf_ktime_get_ns();
+    u64 ip = bpf_get_func_ip(ctx);
+    pid_t pid = bpf_get_current_pid_tgid() >> 32;
+    struct task_struct* task = (struct task_struct*)bpf_get_current_task();
+    struct mm_struct* mm;
+    bpf_probe_read_kernel(&mm, sizeof(struct mm_struct*), &task->mm);
+    unsigned long base_code_addr;
+    bpf_probe_read_kernel(&base_code_addr, sizeof(unsigned long), &mm->start_code);
+    struct perf_data d = {
+        .pid = pid,
+        .ip = ip,
+        .call_time = start,
+        .base_code_addr = base_code_addr,
+    };
+    bpf_ringbuf_output(&rb, &d, sizeof(d), 0);
+    bpf_printk("entry, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Loader}
+The loader program is inspired by some examples in the \href{https://github.com/libbpf/libbpf-bootstrap}{libbpf-bootsrap} repo, following their general structure.
+It generates a skeleton header file from the compiled bpf object using bpftool in the build process.
+\begin{lstlisting}[language=sh, basicstyle=\ttfamily, frame=single]
+bpftool gen skeleton build/uprobe.bpf.o > build/skel/uprobe.skel.h
+\end{lstlisting}
+
+This header file abstracts away alot of boilerplate in loading and attaching the bpf program. All that needs to be done is opening and loading the bpf program:
+\begin{lstlisting}[language=C, basicstyle=\ttfamily, frame=single]
+    skel = uprobe_bpf__open_and_load();
+\end{lstlisting}
+
+It can then be attached to the address of each symbol entry and return.
+\begin{lstlisting}[language=C, basicstyle=\ttfamily, frame=single]
+    const char* binary_name = elf_path;
+    for (int i = 0; i < symbols.length; i++) {
+        symbol* sym = symbols.values[i];
+        uprobe_opts.retprobe = false;
+        skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, binary_name, sym->addr, &uprobe_opts);
+        if (!skel->links.uprobe_entry) {
+            err = -errno;
+            fprintf(stderr, "Failed to attach uprobe: %d\n", err);
+            goto cleanup;
+        }
+        for (int j = 0; j < sym->num_returns; j++) {
+            uprobe_opts.retprobe = true;
+            unsigned long addr = sym->returns[j];
+            skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, binary_name, addr, &uprobe_opts);
+            if (!skel->links.uprobe_ret) {
+                err = -errno;
+                fprintf(stderr, "Failed to attach ret uprobe: %d\n", err);
+                goto cleanup;
+            }
+        }
+\end{lstlisting}
+
+The data from the ringbuffer can then be handled by a callback function set by the following code.
+\begin{lstlisting}[language=C, basicstyle=\ttfamily, frame=single]
+    struct handle_ctx ctx;
+    ctx.symbols = &symbols;
+    struct ring_buffer *rb = NULL;
+    rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_data, &ctx, NULL);
+    if (!rb) {
+        err = -1;
+        fprintf(stderr, "Failed to create ring buffer\n");
+        goto cleanup;
+    }
+    ctx.log_file = fopen("perf_log.log", "w");
+\end{lstlisting}
+
+\begin{lstlisting}[language=C, basicstyle=\ttfamily, frame=single]
+int handle_data(void* vctx, void* dat, size_t dat_sz){
+    struct handle_ctx ctx = *(struct handle_ctx*)vctx;
+    struct perf_data *d = dat;
+#ifdef __x86_64__
+    long unsigned long addr = d->ip - d->base_code_addr + ctx.symbols->offset;
+#else
+    long unsigned long addr = d->ip - d->base_code_addr;
+#endif
+    int is_ret = 0;
+    const char* name = get_symbol_name(ctx.symbols, addr, &is_ret);
+    fprintf(ctx.log_file, is_ret ? "ret: " : "enter: ");
+    fprintf(ctx.log_file, "pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    printf(is_ret ? "ret: " : "enter: ");
+    printf("pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Symbol Data}
+The above process all relies on getting a "symbols.json" file from the program. This is done through getting a symbol map from the linker with \textit{-Wl,-Map=output.map} added to gcc args, and reading the compiled elf to try and get data about the elf sections. After pattern matching with regex on the map, the elf can be disassembled at each symbol address to find all returns before the next symbol. 
+
+I think that this process can be changed by using the binutil nm to find symbols from the unstripped binary, which can also likely be configured to give the size of each symbol, and thus the address of the return of the function (still have to look into this more).
+
+\subsection{Analysis}
+A sample perf\_log.log can look like this.
+\begin{lstlisting}[language=sh]
+...
+enter: pid=7040, name=main, t=23616578499119, addr=814
+enter: pid=7040, name=foo, t=23617579079046, addr=7d4
+ret: pid=7040, name=foo, t=23617579372752, addr=810
+enter: pid=7040, name=foo, t=23617579399002, addr=7d4
+ret: pid=7040, name=foo, t=23617579472209, addr=810
+enter: pid=7040, name=foo, t=23617579540459, addr=7d4
+ret: pid=7040, name=foo, t=23617579647500, addr=810
+...
+...
+...
+ret: pid=7040, name=main, t=23617581723569, addr=890
+...
+\end{lstlisting}
+
+The output of the analysis is simple at the moment. A graph visualization would be nice for this.
+I also think \_start should not necessarily be traced by this program, however it does get caught by the symbol.json generation script. It could be manually ignored in the script.
+\begin{lstlisting}[language=sh]
+call to _start took 0.130082ms
+call to foo took 0.293706ms
+call to foo took 0.073207ms
+call to foo took 0.107041ms
+call to foo took 0.07175ms
+call to foo took 0.077583ms
+call to foo took 0.07875ms
+call to foo took 0.191332ms
+call to foo took 0.076708ms
+call to foo took 0.111416ms
+call to foo took 0.160415ms
+call to foo took 0.069708ms
+call to foo took 0.068541ms
+call to foo took 0.099749ms
+call to foo took 0.087207ms
+call to foo took 0.085166ms
+call to foo took 0.068833ms
+call to foo took 0.070582ms
+call to foo took 0.081958ms
+call to foo took 0.079916ms
+call to foo took 0.085167ms
+call to main took 1003.22445ms
+1005.393267ms
+\end{lstlisting}
+
+%\lstinputlisting[language=, caption=]{}
+
+\end{document}
