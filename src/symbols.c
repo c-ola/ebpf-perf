@@ -27,7 +27,7 @@ symbol_array load_symbols(const char* filename) {
     json_object_object_get_ex(obj, "offset", &tmp_obj);
     unsigned long offset = json_object_get_uint64(tmp_obj);
 
-    json_object_object_get_ex(obj, "symbols", &tmp_obj);
+    json_object_object_get_ex(obj, "functions", &tmp_obj);
     size_t len = json_object_array_length(tmp_obj);
     struct json_object* obj_arr = tmp_obj;
 
@@ -42,7 +42,7 @@ symbol_array load_symbols(const char* filename) {
         struct json_object* obj = json_object_array_get_idx(obj_arr, i);
         struct json_object* sym_obj, * rets_obj;
 
-        json_object_object_get_ex(obj, "symbol", &sym_obj);
+        json_object_object_get_ex(obj, "label", &sym_obj);
         const char* sym_name = json_object_get_string(sym_obj);
         size_t sym_len = json_object_get_string_len(sym_obj);
 

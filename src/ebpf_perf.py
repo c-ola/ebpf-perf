@@ -85,8 +85,6 @@ for idx, function in enumerate(functions):
     code = elf[addr - base_addr:]
     next_sym_addr = functions[idx + 1]['addr'] if idx < len(functions) - 1 else fini
     found_returns = []
-    #if function['symbol'] == "main":
-    #    found_returns.append(fini)
     addr_offset = 0
     while True:
         instrs = md.disasm(code[addr_offset:addr_offset + 18], addr + addr_offset, 1)
