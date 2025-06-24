@@ -29,7 +29,7 @@ bname = $(notdir $(basename $<))
 
 test: $(TESTS_DIR)/test_program.c
 	@ mkdir -p $(BUILD_DIR)/$(bname)
-	gcc $(CFLAGS) -O3 -Wl,-Map="$(BUILD_DIR)/$(bname)/output.map" -Wl,--strip-debug $< -o $(BUILD_DIR)/$(bname)/$@
+	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/$(bname)/output.map" -Wl,--strip-debug $< -o $(BUILD_DIR)/$(bname)/$@
 	nm -U -v -S --demangle $(BUILD_DIR)/$(bname)/$@ > $(BUILD_DIR)/$(bname)/$@.syms
 	@if [ $(STRIP) = "1" ]; then strip $(BUILD_DIR)/$(bname)/$@; fi
 	python3 $(SRC_DIR)/symbols.py $(BUILD_DIR)/$(bname)/$@.syms $(BUILD_DIR)/$(bname)/$@ $(BUILD_DIR)/$(bname)/symbols.json

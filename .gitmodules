@@ -1,0 +1,3 @@
+[submodule "nfer"]
+	path = nfer
+	url = https://bitbucket.org/seanmk/nfer.git

@@ -14,9 +14,9 @@ int main() {
     printf("this is a test program");
     int x = 0;
     usleep(500);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1; i++) {
         foo(1, 2.7);
-        x = foo(2, 3.14);
+        //x = foo(2, 3.14);
     }
     return x;
 }

@@ -1,4 +1,13 @@
-uprobe
+compile_commands.json
 .cache/
 build/
 tests/ioswitch
+src/vmlinux.h
+
+docs/*.aux
+docs/*.fdb_latexmk
+docs/*.fls
+docs/*.log
+docs/*.out
+docs/*.synctex.gz
+docs/*.toc

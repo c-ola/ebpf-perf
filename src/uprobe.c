@@ -46,21 +46,57 @@ int handle_data(void* vctx, void* dat, size_t dat_sz){
 }
 
 
+int attach_to_symbols(symbol_array symbols, struct uprobe_bpf* skel, const char* elf_path) {
+    LIBBPF_OPTS(bpf_uprobe_opts, uprobe_opts);
+    for (size_t i = 0; i < symbols.funcs_len; i++) {
+        symbol* sym = symbols.functions[i];
+        //uprobe_opts.func_name = sym->name;
+        uprobe_opts.retprobe = false;
+        //uprobe_opts.attach_mode = PROBE_ATTACH_MODE_LINK; // doesn't work on armbian, maybe libbpf version is outdated?
+        skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, elf_path, sym->addr, &uprobe_opts);
+        printf("%s=0x%lx\n", sym->name, sym->addr);
+        //char path[256] = "/sys/fs/bpf/";
+        //strcat(path, uprobe_opts.func_name);
+        //bpf_link__pin(skel->links.uprobe_entry, path);
+        if (!skel->links.uprobe_entry) {
+            fprintf(stderr, "Failed to attach uprobe: %d\n", errno);
+            return errno;
+        }
+
+        for (int j = 0; j < sym->num_returns; j++) {
+            //uprobe_opts.func_name = sym->name;
+            uprobe_opts.retprobe = true;
+            unsigned long addr = sym->returns[j];// - sym->addr;
+            printf("ret=0x%lx\n", sym->returns[j]);
+            //printf("attaching ret to offset 0x%lx, for ret 0x%lx\n", addr, sym->returns[i]);
+            skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, elf_path, addr, &uprobe_opts);
+            if (!skel->links.uprobe_ret) {
+                fprintf(stderr, "Failed to attach ret uprobe: %d\n", errno);
+                return errno;
+            }
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
     const char* symbols_path = "symbols.json";
     const char* elf_path = NULL;
+    const char* log_path = "log.trace";
     int c; opterr = 0;
     if (argc == 0) {
         fprintf (stderr, "please provide arguments:\nusage: uprobe [ARGS]\n\t-e <elf_path>\n\t-s <symbols_path>\n");
     }
-    while ((c = getopt(argc, argv, ":e:s:")) != -1) {
+    while ((c = getopt(argc, argv, ":e:s:o:")) != -1) {
         switch (c) {
             case 'e':
                 elf_path = optarg;
                 break;
             case 's':
-                printf("%s here\n", optarg);
                 symbols_path = optarg;
+                break;
+            case 'o':
+                log_path = optarg;
                 break;
             case ':':
                 if (optopt == 'e')
@@ -70,7 +106,7 @@ int main(int argc, char **argv) {
                 if (optopt == 'e')
                     fprintf (stderr, "Option -%c requires an argument.\n", optopt);
                 else if (optopt == 'h')
-                    fprintf (stderr, "usage: uprobe [ARGS]\n\t-e <elf_path>\n\t-s <symbols_path>\n");
+                    fprintf (stderr, "usage: uprobe [ARGS]\n\t-e <elf_path>\n\t-s <symbols_path>\n\t -o <log_path>\n");
                 else if (isprint(optopt))
                     fprintf (stderr, "Unknown option `-%c'.\n", optopt);
                 else
@@ -87,15 +123,9 @@ int main(int argc, char **argv) {
     }
 
     printf("Start monitoring for elf %s. Using symbols s:%s\n", elf_path, symbols_path);
-    symbol_array symbols = load_symbols(symbols_path);
-    for (int i = 0; i < symbols.length; i++) {
-        print_symbol(symbols.values[i]);
-    }
     struct uprobe_bpf *skel;
     int err;
-    LIBBPF_OPTS(bpf_uprobe_opts, uprobe_opts);
 
-    /* Set up libbpf errors and debug info callback */
     libbpf_set_print(libbpf_print_fn);
 
     signal(SIGINT, sig_handler);
@@ -108,52 +138,42 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    symbol_array symbols = load_symbols(symbols_path);
+    printf("Found %ld functions symbols\n", symbols.funcs_len);
+    for (size_t i = 0; i < symbols.funcs_len; i++) {
+        print_symbol(symbols.functions[i]);
+    }
+    printf("Found %ld global symbols\n", symbols.globals_len);
+    for (size_t i = 0; i < symbols.globals_len; i++) {
+        print_symbol(symbols.globals[i]);
+    }
+
     // pin the bpf program so it still exist when this program exits, idk how this works yet
     //bpf_program__pin(skel->progs.uprobe_entry, "/sys/fs/bpf/uprobe_entry");
+    err = attach_to_symbols(symbols, skel, elf_path);
+    if (err != 0) {
+        fprintf(stderr, "Failed to attach bpf prog to symbols: %d\n", errno);
+        return -1;
+    }
 
     /* Attach tracepoint handler */
-    const char* binary_name = elf_path;
-    for (int i = 0; i < symbols.length; i++) {
-        symbol* sym = symbols.values[i];
-        //uprobe_opts.func_name = sym->name;
-        uprobe_opts.retprobe = false;
-        //uprobe_opts.attach_mode = PROBE_ATTACH_MODE_LINK; // doesn't work on armbian, maybe libbpf version is outdated?
-        skel->links.uprobe_entry = bpf_program__attach_uprobe_opts(skel->progs.uprobe_entry, -1, binary_name, sym->addr, &uprobe_opts);
-        printf("%s=0x%lx\n", sym->name, sym->addr);
-        //char path[256] = "/sys/fs/bpf/";
-        //strcat(path, uprobe_opts.func_name);
-        //bpf_link__pin(skel->links.uprobe_entry, path);
-        if (!skel->links.uprobe_entry) {
-            err = -errno;
-            fprintf(stderr, "Failed to attach uprobe: %d\n", err);
-            goto cleanup;
-        }
-
-        for (int j = 0; j < sym->num_returns; j++) {
-            //uprobe_opts.func_name = sym->name;
-            uprobe_opts.retprobe = true;
-            unsigned long addr = sym->returns[j];// - sym->addr;
-            printf("ret=0x%lx\n", sym->returns[j]);
-            //printf("attaching ret to offset 0x%lx, for ret 0x%lx\n", addr, sym->returns[i]);
-            skel->links.uprobe_ret = bpf_program__attach_uprobe_opts( skel->progs.uprobe_ret, -1, binary_name, addr, &uprobe_opts);
-            if (!skel->links.uprobe_ret) {
-                err = -errno;
-                fprintf(stderr, "Failed to attach ret uprobe: %d\n", err);
-                goto cleanup;
-            }
-        }
-    }
-
     struct handle_ctx ctx;
     ctx.symbols = &symbols;
-    struct ring_buffer *rb = NULL;
-    rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_data, &ctx, NULL);
+    struct ring_buffer *rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_data, &ctx, NULL);
     if (!rb) {
-        err = -1;
         fprintf(stderr, "Failed to create ring buffer\n");
-        goto cleanup;
+        clear_symbol_array(symbols);
+        uprobe_bpf__destroy(skel);
+        return -1;
     }
-    ctx.log_file = fopen("perf_log.log", "w");
+    ctx.log_file = fopen(log_path, "w");
+    if (!ctx.log_file) {
+        perror("Failed to open specified log file");
+        ring_buffer__free(rb);
+        clear_symbol_array(symbols);
+        uprobe_bpf__destroy(skel);
+        return -1;
+    }
 
     printf("Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` " "to see output of the BPF programs.\n");
     while (!exiting) {
@@ -169,10 +189,7 @@ int main(int argc, char **argv) {
     }
     fclose(ctx.log_file);
     ring_buffer__free(rb);
-
-cleanup:
-    free(symbols.values);
-    // need to free each symbol too lol, its leaking memory rn
+    clear_symbol_array(symbols);
     uprobe_bpf__destroy(skel);
     return -err;
 }
