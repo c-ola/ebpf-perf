@@ -1,1 +1,8 @@
-CALLED :- CALL before RET where CALL.label = RET.label map { label -> CALL.label}
+//CALLED_min :- t1:CALLED unless contain t2:CALLED where t1.label = t2.label map { label -> t2.label }
+module min {
+    silent import called;
+    CALLED_min :- t1:CALLED unless contain t2:CALLED where t1.label = t2.label & (t1.begin != t2.begin | t1.end != t2.end) map { label -> t1.label }
+}
+module called {
+    CALLED :- CALL before RET where CALL.label = RET.label map { label -> CALL.label }
+}

@@ -1,0 +1,25 @@
+- this can be done with the linux `perf`
+    - perf probe -x ./build/test_program/test 'foo arg1=%di'
+    - perf record -e probe_test:foo ./build/test_program/test
+    - perf script
+- i dont think it can do it in 'real-time' (an)
+
+- floats are passed in through xmm registers
+- sending out data
+    - if there's a pointer in the args, how do you send it to the user program
+        - pointer detection? e.g. > 0x7f0000000000
+        - this could change on architectures, but probably simple to adapt
+- detecting arguments on the stack
+    - could analyze the code to determine them statically (applies for normal arguments too)
+    - need to know their size
+
+- seeing how using ebpfs like this affects performance would be interesting
+- also comparing to just hooking into functions in user space by shared object injection or hijacking
+    - aspect oriented programming``
+
+- edge cases?
+    - what if the program is self-modifying or something similar
+- visualizing
+    - try and use flamegraphs https://www.brendangregg.com/FlameGraphs/cpuflamegraphs.html
+
+- could potentially get more interesting 'profiling' data through perf_events (right now its using probes)

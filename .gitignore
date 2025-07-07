@@ -4,6 +4,7 @@ build/
 tests/ioswitch
 src/vmlinux.h
 
+*/target/
 docs/*.aux
 docs/*.fdb_latexmk
 docs/*.fls

@@ -1,0 +1,64 @@
+{
+  "structs": {
+    "_astruct": [
+      [
+        "int",
+        "a"
+      ],
+      [
+        "unsigned_long",
+        "b"
+      ],
+      [
+        "float",
+        "c"
+      ],
+      [
+        "char",
+        "d"
+      ]
+    ],
+    "secondstruct": [
+      [
+        "astruct",
+        "haha"
+      ]
+    ]
+  },
+  "vars": {
+    "some_global_var": "astruct"
+  },
+  "functions": {
+    "foo": {
+      "args": [
+        [
+          "int",
+          "x"
+        ],
+        [
+          "float",
+          "b"
+        ]
+      ],
+      "ret": "int"
+    },
+    "main": {
+      "args": [
+        [
+          "int",
+          "argc"
+        ],
+        [
+          "char**",
+          "argv"
+        ]
+      ],
+      "ret": "int"
+    }
+  },
+  "type_map": {
+    "_astruct": "_astruct",
+    "astruct": "_astruct",
+    "secondstruct": "secondstruct"
+  }
+}

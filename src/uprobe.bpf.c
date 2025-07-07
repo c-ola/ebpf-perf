@@ -20,6 +20,13 @@ struct {
     __uint(max_entries, 256 * 1024);
 } rb SEC(".maps");
 
+typedef struct _astruct {
+    int a;
+    unsigned long b;
+    float c;
+    char d;
+} astruct;
+
 SEC("uprobe/entry_uprobe")
 int BPF_KPROBE(uprobe_entry) {
     u64 start = bpf_ktime_get_ns();
@@ -35,9 +42,14 @@ int BPF_KPROBE(uprobe_entry) {
         .ip = ip,
         .call_time = start,
         .base_code_addr = base_code_addr,
+        .params = {ctx->di, ctx->si, ctx->dx, ctx->r8, ctx->r9},
+        .ret = ctx->ax
     };
     bpf_ringbuf_output(&rb, &d, sizeof(d), 0);
     bpf_printk("entry, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);
+    astruct t;
+    bpf_probe_read_user(&t, sizeof(astruct), (void*)(0x4020 + base_code_addr - 4096));
+    bpf_printk("a: %d, b: %lu, d: %c", t.a, t.b, t.d);
     return 0;
 }
 
@@ -56,6 +68,8 @@ int BPF_KRETPROBE(uprobe_ret){//, long ret) {
         .ip = ip,
         .call_time = start,
         .base_code_addr = base_code_addr,
+        .params = {0},
+        .ret = ctx->ax,
     };
     bpf_ringbuf_output(&rb, &d, sizeof(d), 0);
     bpf_printk("ret, start=%lu, rip=0x%lx, base_code_addr=0x%lx", start, ip, base_code_addr);

@@ -32,16 +32,23 @@ int handle_data(void* vctx, void* dat, size_t dat_sz){
     struct handle_ctx ctx = *(struct handle_ctx*)vctx;
     struct perf_data *d = dat;
 #ifdef __x86_64__
-    long unsigned long addr = d->ip - d->base_code_addr + ctx.symbols->offset;
+    unsigned long addr = d->ip - d->base_code_addr + ctx.symbols->offset;
 #else
-    long unsigned long addr = d->ip - d->base_code_addr;
+    unsigned long addr = d->ip - d->base_code_addr;
 #endif
     int is_ret = 0;
     const char* name = get_symbol_name(ctx.symbols, addr, &is_ret);
     fprintf(ctx.log_file, is_ret ? "ret: " : "enter: ");
-    fprintf(ctx.log_file, "pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    fprintf(ctx.log_file, "pid=%d, name=%s, t=%lu, addr=%lx\n", d->pid, name, d->call_time, addr); 
     printf(is_ret ? "ret: " : "enter: ");
-    printf("pid=%d, name=%s, t=%llu, addr=%llx\n", d->pid, name, d->call_time, addr); 
+    printf("pid=%d, name=%s, t=%lu, addr=%lx\n", d->pid, name, d->call_time, addr); 
+    if (!is_ret) {
+        printf("arg1=0x%08lx, arg2=0x%08lx, arg3=0x%08lx, arg4=0x%08lx, arg5=0x%08lx, arg6=0x%08lx, ", d->params[0], d->params[1], d->params[2], d->params[3], d->params[4], d->params[5]);
+        fprintf(ctx.log_file, "arg1=0x%08lx, arg2=0x%08lx, arg3=0x%08lx, arg4=0x%08lx, arg5=0x%08lx, arg6=0x%08lx, ", d->params[0], d->params[1], d->params[2], d->params[3], d->params[4], d->params[5]);
+    } else {
+        printf("ret=0x%08lx, ", d->ret);
+        fprintf(ctx.log_file, "ret=0x%08lx, ", d->ret);
+    }
     return 0;
 }
 
