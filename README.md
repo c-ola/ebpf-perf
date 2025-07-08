@@ -1,6 +1,9 @@
 # Profiling with eBPF
 This tool attaches a BPF program to (mostly) each function entry and return in an elf, outputting a trace of these calls/returns.
 
+
+Note: I'm trying to move some of the loader stuff to rust since it's more ergonomic in some situations (working with different configurations for binaries).
+
 ## Dependencies
 - gcc
 - make
@@ -23,6 +26,7 @@ This builds the loader and tests
 make
 ```
 ### For custom binaries
+TODO
 
 
 ## Running
@@ -37,7 +41,7 @@ This is required to generate the json description of the symbols.
 
 The json file can be generated like this:
 ```sh
-python3 src/symbols.py path/to/symbolmap path/to/elf path/to/output_file
+python3 scripts/symbols.py path/to/symbolmap path/to/elf path/to/output_file
 ```
 
 The loader can finally be run with:

@@ -1,11 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "rust",
-    "rust-common",
-    "rust-ebpf",
+    "monitor",
 ]
-default-members = ["rust", "rust-common"]
+default-members = ["monitor"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
@@ -27,7 +25,3 @@ libc = { version = "0.2.159", default-features = false }
 log = { version = "0.4.22", default-features = false }
 tokio = { version = "1.40.0", default-features = false }
 which = { version = "6.0.0", default-features = false }
-
-[profile.release.package.rust-ebpf]
-debug = 2
-codegen-units = 1

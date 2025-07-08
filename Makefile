@@ -1,6 +1,7 @@
 CC := clang
 BUILD_DIR := build
 SRC_DIR := src
+SCRIPTS_DIR := scripts
 TESTS_DIR := tests
 SKEL_DIR := $(BUILD_DIR)/skel
 CFLAGS := -g -Wall -Wextra
@@ -32,7 +33,7 @@ test: $(TESTS_DIR)/test_program.c
 	gcc $(CFLAGS) -Wl,-Map="$(BUILD_DIR)/$(bname)/output.map" -Wl,--strip-debug $< -o $(BUILD_DIR)/$(bname)/$@
 	nm -U -v -S --demangle $(BUILD_DIR)/$(bname)/$@ > $(BUILD_DIR)/$(bname)/$@.syms
 	@if [ $(STRIP) = "1" ]; then strip $(BUILD_DIR)/$(bname)/$@; fi
-	python3 $(SRC_DIR)/symbols.py $(BUILD_DIR)/$(bname)/$@.syms $(BUILD_DIR)/$(bname)/$@ $(BUILD_DIR)/$(bname)/symbols.json
+	python3 $(SCRIPTS_DIR)/symbols.py $(BUILD_DIR)/$(bname)/$@.syms $(BUILD_DIR)/$(bname)/$@ $(BUILD_DIR)/$(bname)/symbols.json
 
 uprobe: $(SRC_DIR)/uprobe.c $(SKEL_DIR)/uprobe.skel.h
 	gcc $(CFLAGS) $(SRC_DIR)/uprobe.c $(SRC_DIR)/symbols.c $(INCLUDES) -ljson-c -lbpf -lelf -lz -o $(BUILD_DIR)/$@

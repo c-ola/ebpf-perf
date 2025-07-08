@@ -1,17 +1,24 @@
 import json
-with open("tags", 'r') as f:
-    lines = f.readlines()
-
+import sys
 import re
 
-def extract_args(line: str, func_name: str) -> str:
-    # Match the function and extract the argument list inside parentheses
+
+ctags_path = "tags"
+output_path = "desc.json"
+if len(sys.argv) > 1:
+    ctags_path = sys.argv[1]
+if len(sys.argv) > 2:
+    output_path = sys.argv[2]
+
+with open(ctags_path, 'r') as f:
+    lines = f.readlines()
+
+def extract_args(line, func_name):
     pattern = rf'{re.escape(func_name)}\s*\(([^)]*)\)'
     match = re.search(pattern, line)
     if match:
         return match.group(1).strip()
     return ""
-
 
 structs = {}
 type_map = {}
@@ -47,8 +54,8 @@ for line in lines:
             if not structs.get(parent_struct):
                 structs[parent_struct] = []
             structs[parent_struct].append((t, name))
-with open('desc.json', 'w') as f:
 
+with open(output_path, 'w') as f:
     json.dump({
         "structs": structs,
         "vars": vars,
