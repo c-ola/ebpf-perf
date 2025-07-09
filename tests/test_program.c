@@ -19,7 +19,7 @@ static astruct some_global_var = {
     .d = 'd',
 };
 
-__attribute__((noinline)) int foo(int x, float b) {
+/*__attribute__((noinline)) int foo(int x, float b) {
     printf("the value of x is %d\n", x);
     printf("the value of b is %.2f\n", b);
     some_global_var.a += 20;
@@ -27,7 +27,7 @@ __attribute__((noinline)) int foo(int x, float b) {
 }
 
 int main(int argc, char** argv) {
-    printf("this is a test program");
+    printf("foo=%p, main=%p\n", foo, main);
     int x = 0;
     usleep(500);
     for (int i = 0; i < 10; i++) {
@@ -35,5 +35,16 @@ int main(int argc, char** argv) {
         x = foo(2, 3.14);
     }
     return x;
+}*/
+
+int foo(int x, float b) {
+    ...
+}
+
+int main(int argc, char** argv) {
+    for (int i = 0; i < 10; i++) {
+        foo(i, 3.14 * i);
+    }
+    return 1;
 }
 
