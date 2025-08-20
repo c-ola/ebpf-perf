@@ -1,0 +1,3 @@
+Pin: pin-3.31-98869-fa6f126a8
+Copyright 2002-2024 Intel Corporation.
+E:  trace.cpp:135 Inserting IPOINT_AFTER with invalid instruction (   585 0x000055e3479f14f4 ret ). See INS_IsValidForIpointAfter()

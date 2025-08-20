@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, path::{Path, PathBuf}, sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
+use std::{collections::HashMap, fmt::Display, fs::File, io::Write, path::{Path, PathBuf}, sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
 
 use anyhow::anyhow;
 use aya::{maps::{Map, RingBuf}, programs::{links::{FdLink, PinnedLink}, Program, UProbe}};
@@ -10,7 +10,6 @@ use serde::Deserialize;
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[derive(Parser, Debug)]
-#[command(name = "ebpf perf commands")]
 #[command(about, long_about = None)]
 struct Cli {
     #[command(flatten)]
@@ -29,7 +28,14 @@ struct CoreArgs {
 
     #[arg(short, long)]
     description: Option<PathBuf>,
+
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    #[arg(short, long, default_value="../build/uprobe.bpf.o")]
+    program: Option<PathBuf>
 }
+
 /// Loader for an ebpf monitor
 #[derive(Subcommand, Debug)]
 #[command(name = "uprobe", version, about, author)]
@@ -75,11 +81,17 @@ impl PerfData {
         sym.map(|sym| sym.label.as_str())
     }
 
-    fn log(&self, symbols: &Symbols, desc: &Option<Description>) -> anyhow::Result<()>{
+    fn log(&self, symbols: &Symbols, desc: &Option<Description>) -> anyhow::Result<String>{
         let sym = self.get_symbol(symbols);
-        println!("\nt={} name={} pid={} ip={:x} params={:?} ret={:?}", self.call_time, if let Some(sym) = sym {&sym.label} else { "" }, self.pid, self.ip, self.params, self.ret);
+        let mut res = format!("t={}, name={}, tid={}, pid={}, ip={:x}", self.call_time, if let Some(sym) = sym {&sym.label} else { "" }, self.tid, self.pid, self.ip);
         let sym = sym.ok_or(anyhow!("Could not find symbol at addr {}", self.addr(symbols)))?;
         let is_entry = sym.addr == self.addr(symbols);
+        if is_entry {
+            res += &format!(", params={:?}", self.params);
+        } else {
+            res += &format!(", ret={}", self.ret);
+        }
+        res += "\n";
         if let Some(desc) = desc {
             let desc = desc.functions.get(&sym.label);
             if let Some(desc) = desc {
@@ -88,11 +100,11 @@ impl PerfData {
                         let val = self.params[i];
                         // this has to be changed
                         let arg_val = format!("{} {}={}", arg.0, arg.1, val);
-                        println!("{}", arg_val);
+                        res += &format!("{}", arg_val);
                     }
                 } else {
                     let arg_val = format!("{} {}={}", desc.ret, "ret", self.ret);
-                    println!("{}", arg_val);
+                    res += &format!("{}", arg_val);
                 }
             }
         }
@@ -106,14 +118,17 @@ impl PerfData {
         //    println!("\tglobal: {}=", global.label);
         //}
 
-        Ok(())
+        Ok(res)
     }
 }
 
-fn handle_data(data: &[u8], symbols: &Symbols, desc: &Option<Description>) -> anyhow::Result<()> {
+fn handle_data(data: &[u8], ctx: &mut Context) -> anyhow::Result<()> {
     let data: &PerfData = unsafe { &*(data.as_ptr() as *const PerfData)};
-    match data.log(symbols, desc) {
-        Ok(()) => (),
+    match data.log(&ctx.symbols, &ctx.description) {
+        Ok(s) => {
+            ctx.output.write(s.as_bytes())?;
+            println!("{s}");
+        },
         Err(e) => log::error!("Error occurred while logging: {e}")
     }
     Ok(())
@@ -160,7 +175,8 @@ struct Description {
 pub struct Context {
     elf: PathBuf,
     symbols: Symbols,
-    description: Option<Description>
+    description: Option<Description>,
+    output: File,
 }
 
 pub fn load(ebpf: &mut aya::Ebpf, pin: bool, ctx: &Context) -> anyhow::Result<()> {
@@ -210,7 +226,7 @@ pub fn load(ebpf: &mut aya::Ebpf, pin: bool, ctx: &Context) -> anyhow::Result<()
     Ok(())
 }
 
-pub fn monitor(ebpf: &mut aya::Ebpf, is_pinned: bool, ctx: &Context) -> anyhow::Result<()> {
+pub fn monitor(ebpf: &mut aya::Ebpf, is_pinned: bool, ctx: &mut Context) -> anyhow::Result<()> {
     // cant get a MapRefMut
     if is_pinned {
         // This doesn't work
@@ -230,9 +246,10 @@ pub fn monitor(ebpf: &mut aya::Ebpf, is_pinned: bool, ctx: &Context) -> anyhow::
         while running.load(Ordering::SeqCst) {
             // read the item from the ringbuf if it has it, then handle it
             while let Some(item) = ring_buf.next() {
-                handle_data(&item, &ctx.symbols, &ctx.description)?;
+                handle_data(&item, ctx)?;
             }
-            std::thread::sleep(Duration::from_millis(100));
+            // switch to EPOLL PLEASE 
+            std::thread::sleep(Duration::from_millis(1));
         }
     }
     else {
@@ -249,9 +266,9 @@ pub fn monitor(ebpf: &mut aya::Ebpf, is_pinned: bool, ctx: &Context) -> anyhow::
         while running.load(Ordering::SeqCst) {
             // read the item from the ringbuf if it has it, then handle it
             while let Some(item) = ring_buf.next() {
-                handle_data(&item, &ctx.symbols, &ctx.description)?;
+                handle_data(&item, ctx)?;
             }
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(1));
         }
     }
 
@@ -334,14 +351,15 @@ async fn main() -> anyhow::Result<()> {
     let mut ebpf = aya::Ebpf::load_file("../build/uprobe.bpf.o")?;
 
     let elf = std::fs::canonicalize(&args.core_args.elf)?;
-    let ctx: Context = Context { elf: elf, symbols, description };
+    let output = File::create(args.core_args.output.unwrap_or((elf.file_name().unwrap().to_string_lossy().to_string() + ".log").into()))?;
+    let mut ctx: Context = Context { elf: elf, symbols, description, output };
 
     log::info!("Running Command");
     match &args.command {
         Commands::Load{ monitor_after, pin } => {
             let res = load(&mut ebpf, *pin, &ctx);
             if res.is_ok() && *monitor_after {
-                return monitor(&mut ebpf, *pin, &ctx)
+                return monitor(&mut ebpf, *pin, &mut ctx)
             }
             res
         },
@@ -349,7 +367,7 @@ async fn main() -> anyhow::Result<()> {
             unload(&mut ebpf, &ctx)
         },
         Commands::Monitor => {
-            monitor(&mut ebpf, false, &ctx)
+            monitor(&mut ebpf, false, &mut ctx)
         }
     }?;
 

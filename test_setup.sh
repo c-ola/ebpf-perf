@@ -2,7 +2,7 @@
 
 set -x
 
-target=$1
+target=$1 # elf
 bname=$(basename $target)
 build_dir=$2/${bname}
 mkdir -p $build_dir

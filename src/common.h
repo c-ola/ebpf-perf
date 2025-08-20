@@ -1,6 +1,7 @@
 //#include "vmlinux.h"
 struct perf_data {
     int pid;
+    int tid;
     unsigned long call_time;
     unsigned long ip;
     unsigned long base_code_addr;

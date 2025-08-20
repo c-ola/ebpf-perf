@@ -1,0 +1,23 @@
+#ifndef __TRACING_AH__
+#define __TRACING_AH__
+#include <string>
+#include <iostream>
+#include <ctime>
+aspect Tracing {
+    unsigned int level = 0;
+    advice execution("% ...::%(...)") : before() {
+        struct timespec ts;
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+        long long cpu_time_ns = (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+        printf("before %lld: %s\n", cpu_time_ns, JoinPoint::signature());
+        //std::cout << &std::string(level++, ' ') << "> " << JoinPoint::signature() << std::endl;
+    }
+    advice execution("% ...::%(...)") : after() {
+        struct timespec ts;
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+        long long cpu_time_ns = (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+        printf("after %lld: %s\n", cpu_time_ns, JoinPoint::signature());
+        level--;
+    }
+};
+#endif

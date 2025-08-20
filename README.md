@@ -51,3 +51,17 @@ sudo ./build/uprobe -e path/to/elf -s path/to/symbolsjson -o path/to/outputlog
 
 Once the loader is running, running the specified elf will cause the loader program to print out traces containing the function name, address, if its a call or return, and PID for each symbol that the loader attached a uprobe bpf to.
 
+
+# Rust
+
+## Build
+You might need some nightly stuff
+```
+cargo build
+```
+
+## Run
+```
+./target/debug/monitor -e path/to/binary -s path/to/symbols.json <COMMAND> [OPTIONS]
+```
+
